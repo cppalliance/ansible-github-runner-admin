@@ -1,0 +1,90 @@
+---
+- name: Install general packages
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+  with_items: "{{ github_runner_admin_packages }}"
+
+- name: Install nginx vhost
+  ansible.builtin.template:
+    src: vhost.j2
+    dest: /etc/nginx/sites-available/gha
+    mode: "0644"
+    owner: root
+    group: root
+  notify:
+    - Restart nginx
+
+- name: Install nginx vhost symlink
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/gha
+    dest: /etc/nginx/sites-enabled/gha
+    owner: root
+    group: root
+    state: link
+  notify:
+    - Restart nginx
+
+- name: Create letsencrypt directory
+  ansible.builtin.file:
+    path: /var/www/letsencrypt
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Ensure htpasswd credentials are configured.
+  community.general.htpasswd:
+    path: "{{ item.path }}"
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode | default('u+rw,g+r') }}"
+  with_items: "{{ htpasswd_credentials }}"
+
+- name: Create scripts directory
+  ansible.builtin.file:
+    path: /root/scripts
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Install gha_workflow_stats.py script
+  ansible.builtin.copy:
+    src: gha_workflow_stats.py
+    dest: /root/scripts/gha_workflow_stats.py
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install gha_workflow_stats_config_data.py
+  ansible.builtin.template:
+    src: gha_workflow_stats_config_data.py.j2
+    dest: /root/scripts/gha_workflow_stats_config_data.py
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create node exporter user account
+  ansible.builtin.user:
+    name: "{{ github_runner_admin_node_exporter_user }}"
+    group: "{{ github_runner_admin_node_exporter_group }}"
+    shell: /usr/sbin/nologin
+
+- name: Create node_exporter directory
+  ansible.builtin.file:
+    path: /var/lib/node_exporter
+    state: directory
+    mode: '0775'
+    owner: "{{ github_runner_admin_node_exporter_user }}"
+    group: "{{ github_runner_admin_node_exporter_group }}"
+
+- name: Install stats collection cron job
+  ansible.builtin.cron:
+    name: "collect gha stats"
+    minute: "*/30"
+    hour: "*"
+    job: "/root/scripts/gha_workflow_stats.py > /var/lib/node_exporter/gha_workflow_stats.prom.$$ && mv /var/lib/node_exporter/gha_workflow_stats.prom.$$ /var/lib/node_exporter/gha_workflow_stats.prom"

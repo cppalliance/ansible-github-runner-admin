@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: github_runner_admin
+  author: cppalliance
+  description: github self-hosted runner admin
+  company: cppalliance
+  license: Boost
+  min_ansible_version: "2.1"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+  galaxy_tags: []
+dependencies: []

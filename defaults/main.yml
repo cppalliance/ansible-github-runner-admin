@@ -1,0 +1,50 @@
+---
+github_runner_admin_packages:
+  - nginx
+  - ssl-cert
+  - gh
+  - php8.1-fpm
+  - apache2-utils
+  - python3-passlib
+github_runner_admin_server_names: gha.example.com www.gha.example.com
+github_runner_admin_webroot: /var/www/gha
+
+# How many billing minutes remain before enabling self-hosted runners
+github_runner_admin_minutes_buffer: 200
+
+# The nginx vhost uses SSL. The default here depends on snippets/snakeoil.conf which are self-signed, invalid certs.
+# If you install your own SSL certificates, modify this variable to point to them.  
+github_runner_admin_ssl_config: |
+  include /etc/nginx/snippets/snakeoil.conf;
+      # ssl_certificate /etc/letsencrypt/live/gha.example.com/fullchain.pem;
+      # ssl_certificate_key /etc/letsencrypt/live/gha.example.com/privkey.pem;
+
+# The following variables are used in the gha_workflow_stats.py stats collection script.
+# Although the GitHub "organization" is almost always the same value, all the time, there are testing or edge cases where it could vary.
+# You will probably set all of these to the same organization.
+github_runner_admin_gh_organization: example
+github_runner_admin_api_organization: example
+github_runner_admin_api_display_organization: example
+
+github_runner_admin_webuser: www-data
+github_runner_admin_webgroup: www-data
+
+# Set this to a personal access token or fine-grained token which will be used to query repositories about their workflows.
+# With public repositories the token does not need to be assigned any important permissions.
+github_runner_admin_gh_token: github_pat_1111
+
+# Set this to a personal access token or fine-grained token which has access to query the billing API.
+# A fine-grained token will need at least read-only access to Administration, by a user that has that permission.
+github_runner_admin_api_token: github_pat_2222
+
+# This role doesn't install prometheus node-exporter. But it generates prometheus output that you could use.  
+github_runner_admin_node_exporter_user: "node-exp"
+github_runner_admin_node_exporter_group: "node-exp"
+
+htpasswd_credentials:
+  - path: /etc/apache2/.htpasswd
+    name: admin
+    password: mypassword
+    owner: root
+    group: root
+    mode: '0755'

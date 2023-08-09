@@ -1,0 +1,6 @@
+---
+- hosts: localhost
+  name: Test playbook
+  remote_user: root
+  roles:
+    - cppalliance.github_runner_admin

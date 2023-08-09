@@ -1,0 +1,7 @@
+---
+- hosts: github_runner_admin
+  name: GitHub Runner Admin Playbook
+  become: true
+  gather_facts: true
+  roles:
+    - cppalliance.github_runner_admin

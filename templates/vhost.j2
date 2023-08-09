@@ -1,0 +1,46 @@
+server {
+    listen 80;
+    server_name {{ github_runner_admin_server_names }};
+    root {{ github_runner_admin_webroot }};
+
+    location '/.well-known/acme-challenge' {
+        default_type "text/plain";
+        root /var/www/letsencrypt;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    default_type "text/plain";
+    error_log /var/log/nginx/error2.log debug;
+    listen 443 ssl;
+    listen [::]:443 ssl; 
+    server_name {{ github_runner_admin_server_names }};
+    {{ github_runner_admin_ssl_config }}
+
+    root {{ github_runner_admin_webroot }};
+
+    index index.html index.htm index.php;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ ^/admin/ {
+        auth_basic           "Administrator’s Area";
+        auth_basic_user_file /etc/apache2/.htpasswd;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
