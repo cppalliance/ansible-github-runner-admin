@@ -6,6 +6,25 @@
     update_cache: true
   with_items: "{{ github_runner_admin_packages }}"
 
+- name: Create dir awscli_install
+  ansible.builtin.file:
+    path: /tmp/awscli_install
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Install awscli
+  ansible.builtin.shell: |
+    cd /tmp/awscli_install
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    sudo ./aws/install
+  args:
+    creates: /usr/local/bin/aws
+    chdir: /tmp/awscli_install
+    executable: /usr/bin/bash
+
 - name: Install nginx vhost
   ansible.builtin.template:
     src: vhost.j2
@@ -68,6 +87,22 @@
     group: root
     mode: '0755'
 
+- name: Install gha_runner_stats.sh script
+  ansible.builtin.template:
+    src: gha_runner_stats.sh.j2
+    dest: /root/scripts/gha_runner_stats.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install gha_runner_stats_config_data.sh
+  ansible.builtin.template:
+    src: gha_runner_stats_config_data.sh.j2
+    dest: /root/scripts/gha_runner_stats_config_data.sh
+    owner: root
+    group: root
+    mode: '0755'
+
 - name: Create node exporter user account
   ansible.builtin.user:
     name: "{{ github_runner_admin_node_exporter_user }}"
@@ -82,9 +117,16 @@
     owner: "{{ github_runner_admin_node_exporter_user }}"
     group: "{{ github_runner_admin_node_exporter_group }}"
 
-- name: Install stats collection cron job
+- name: Install workflow stats collection cron job
   ansible.builtin.cron:
     name: "collect gha stats"
     minute: "*/30"
     hour: "*"
     job: "/root/scripts/gha_workflow_stats.py > /var/lib/node_exporter/gha_workflow_stats.prom.$$ && mv /var/lib/node_exporter/gha_workflow_stats.prom.$$ /var/lib/node_exporter/gha_workflow_stats.prom"
+
+- name: Install gha_runners data collection cron job
+  ansible.builtin.cron:
+    name: "collect gha runners data"
+    minute: "*/5"
+    hour: "*"
+    job: "/root/scripts/gha_runner_stats.sh > /var/lib/node_exporter/gha_runner_stats.prom.$$ && mv /var/lib/node_exporter/gha_runner_stats.prom.$$ /var/lib/node_exporter/gha_runner_stats.prom"

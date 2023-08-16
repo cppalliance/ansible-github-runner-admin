@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+. ${SCRIPT_DIR}/gha_runner_stats_config_data.sh
+
+runnertypes="{{ github_runner_admin_runnertypes }}"
+
+instance_results=$(aws ec2 describe-instances --region $AWS_DEFAULT_REGION --filters Name=instance-state-name,Values=pending,running --query 'Reservations[].Instances[].[InstanceId,InstanceType,PublicIpAddress,Tags[?Key==`Name`]| [0].Value]' --output text)
+
+for runnertype in $runnertypes; do
+    numberofinstances=$(echo "${instance_results}" | grep ${runnertype} | wc -l)
+    echo "gha_runners{runnertype=\"${runnertype}\"} ${numberofinstances}"
+done

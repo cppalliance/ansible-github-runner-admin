@@ -6,6 +6,7 @@ github_runner_admin_packages:
   - php8.1-fpm
   - apache2-utils
   - python3-passlib
+  - unzip
 github_runner_admin_server_names: gha.example.com www.gha.example.com
 github_runner_admin_webroot: /var/www/gha
 
@@ -13,7 +14,7 @@ github_runner_admin_webroot: /var/www/gha
 github_runner_admin_minutes_buffer: 200
 
 # The nginx vhost uses SSL. The default here depends on snippets/snakeoil.conf which are self-signed, invalid certs.
-# If you install your own SSL certificates, modify this variable to point to them.  
+# If you install your own SSL certificates, modify this variable to point to them.
 github_runner_admin_ssl_config: |
   include /etc/nginx/snippets/snakeoil.conf;
       # ssl_certificate /etc/letsencrypt/live/gha.example.com/fullchain.pem;
@@ -37,7 +38,7 @@ github_runner_admin_gh_token: github_pat_1111
 # A fine-grained token will need at least read-only access to Administration, by a user that has that permission.
 github_runner_admin_api_token: github_pat_2222
 
-# This role doesn't install prometheus node-exporter. But it generates prometheus output that you could use.  
+# This role doesn't install prometheus node-exporter. But it generates prometheus output that you could use.
 github_runner_admin_node_exporter_user: "node-exp"
 github_runner_admin_node_exporter_group: "node-exp"
 
@@ -48,3 +49,9 @@ htpasswd_credentials:
     owner: root
     group: root
     mode: '0755'
+
+# Used for runner stats collection
+github_runner_admin_aws_access_key_id: id
+github_runner_admin_aws_secret_access_key: key
+github_runner_admin_aws_default_region: us-east-1
+github_runner_admin_runnertypes: "docker-registry gha-ubuntu-jammy-action-runner gha-ubuntu-focal-action-runner gha-ubuntu-bionic-action-runner gha-windows-2022-action-runner gha-windows-2019-action-runner"
