@@ -35,6 +35,10 @@ debuglog.flush()
 
 # Discover list of all repos
 allrepos = subprocess.run(['gh', 'repo', 'list', config_data.gh_organization, '-L', querycount, '--json', 'name', '--jq', '.[].name'], stdout=subprocess.PIPE)
+gh_returncode=allrepos.returncode
+if gh_returncode != 0:
+    debuglog.write("The gh command failed with returncode " + str(gh_returncode) + ". You should check gh_token.\n")
+    debuglog.flush()
 
 statuslist=["in_progress", "queued", "requested", "waiting", "pending"]
 for status in statuslist:
@@ -51,6 +55,7 @@ for x in allrepos.stdout.splitlines():
         allresults[status]=allresults[status] + data["total_count"]
         if int(data["total_count"]) > 0:
             debuglog.write(repo + " " + status + " " + str(data['total_count']) + " \n")
+            # debuglog.write("All results for " + repo + " " + status + " " + str(data) + " \n")
             debuglog.flush()
         
 # Completed
@@ -64,44 +69,71 @@ x = subprocess.run(['curl', '-sS', '-L', '-H', "Accept: application/vnd.github+j
 
 result=x.stdout.decode('UTF-8')
 data=defaultdict(def_value)
-data2=json.loads(result)
-# It's possible the api query failed. If so, write info to log.
-if "message" in data2:
-    debuglog.write("API result message: " + str(data2["message"]) + "\n")
+if result:
+    data2=json.loads(result)
+
+if x.returncode != 0:
+    debuglog.write("The curl command failed with returncode " + str(x.returncode) + "\n")
     debuglog.flush()
-for k,v in data2.items():
-    data[k]=v
+    api_returncode=1
+elif "message" in data2:
+    debuglog.write("API result message: " + str(data2["message"]) + "\n")
+    debuglog.write("It's likely if there was an API message that API auth failed. Check api_token.\n")
+    debuglog.flush()
+    api_returncode=1
+else:
+    api_returncode=0
+    for k,v in data2.items():
+      data[k]=v
 
 print("gha_billing{owner=\"" + config_data.api_display_organization + "\", data_type=\"total_minutes_used\"} " + str(data["total_minutes_used"]))
 print("gha_billing{owner=\"" + config_data.api_display_organization + "\", data_type=\"total_paid_minutes_used\"} " + str(data["total_paid_minutes_used"]))
 print("gha_billing{owner=\"" + config_data.api_display_organization + "\", data_type=\"included_minutes\"} " + str(data["included_minutes"]))
 
-# UPDATE SELF-HOSTED RUNNERS BASED ON THE BILLING DATA RESULTS ######################################
+# UPDATE SELF-HOSTED RUNNERS BASED ON THE RESULTS ######################################
 
-remaining_minutes=int(data["included_minutes"]) - int(data["total_minutes_used"])
-
+switch_target_value=""
 lockfile=config_data.webroot + "/lockfile"
 switchfile=config_data.webroot + "/switch"
-if remaining_minutes<=int(config_data.minutes_buffer) and not(os.path.isfile(lockfile)):
+remaining_minutes=0
+remaining_queue=0
+
+if api_returncode == 0:
+    # Most likely the api query succeeded
+    remaining_minutes=int(data["included_minutes"]) - int(data["total_minutes_used"])
+    if remaining_minutes<=int(config_data.minutes_buffer):
+        switch_target_value="true"
+
+if gh_returncode == 0:
+    # Most likely the gh query succeeded
+    remaining_queue=int(config_data.queue_buffer)-int(allresults["queued"])
+    if remaining_queue<=0:
+        switch_target_value="true"
+
+if switch_target_value == "true" and not(os.path.isfile(lockfile)):
     f = open(switchfile, "w")
     f.write("true")
     f.close()
     shutil.chown(switchfile, config_data.webuser, config_data.webgroup)
-    debuglog.write("Set switch to true. Using self-hosted runners.")
-elif remaining_minutes>0 and not(os.path.isfile(lockfile)):
+    debuglog.write("Set switch to true. Using self-hosted runners.\n")
+
+elif switch_target_value == "true" and os.path.isfile(lockfile):
+    debuglog.write("Lockfile exists. Not modifying switch. It would have been set to true.\n")
+
+elif (remaining_queue>0 or remaining_minutes>0) and not(os.path.isfile(lockfile)):
     f = open(switchfile, "w")
     f.write("false")
     f.close()
     shutil.chown(switchfile, config_data.webuser, config_data.webgroup)
-    debuglog.write("Set switch to false. Not using self-hosted runners.")
-elif remaining_minutes>0 and os.path.isfile(lockfile):
-    debuglog.write("Lockfile exists. Not modifying switch. It would have been set to false.")
-elif remaining_minutes<=0 and os.path.isfile(lockfile):
-    debuglog.write("Lockfile exists. Not modifying switch. It would have been set to true.")
-elif os.path.isfile(lockfile):
-    debuglog.write("Should not happen. Lockfile exists.")
+    debuglog.write("Set switch to false. Not using self-hosted runners.\n")
+
+elif (remaining_queue>0 or remaining_minutes>0) and os.path.isfile(lockfile):
+    debuglog.write("Lockfile exists. Not modifying switch. It would have been set to false.\n")
+
 else:
-    debuglog.write("Should not happen.")
+    debuglog.write("No conditions match. No action being taken.\n")
+
+debuglog.write("remaining_queue: " + str(remaining_queue) + " remaining_minutes: " + str(remaining_minutes) + "\n")
 
 # Create a userinfo file
 

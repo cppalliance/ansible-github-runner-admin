@@ -13,6 +13,9 @@ github_runner_admin_webroot: /var/www/gha
 # How many billing minutes remain before enabling self-hosted runners
 github_runner_admin_minutes_buffer: 200
 
+# How many queued jobs exist before enabling self-hosted runners
+github_runner_admin_queue_buffer: 5
+
 # The nginx vhost uses SSL. The default here depends on snippets/snakeoil.conf which are self-signed, invalid certs.
 # If you install your own SSL certificates, modify this variable to point to them.
 github_runner_admin_ssl_config: |
